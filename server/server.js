@@ -117,7 +117,7 @@ function getUserRooms(socket) {
 server.on('error', (err) => {
 	console.error('Server error:', err);
 });
-const PORT = 3000 || process.env.PORT;
+const PORT = process.env.PORT;
 
 
 server.listen(PORT, () => {
