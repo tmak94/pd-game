@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Prisoner Dilemma</title>
+  <script>
+    const roomName = "<%= roomName %>"
+  </script>
+  <script defer src="/socket.io/socket.io.js"></script>
+  <script defer src="src/client.js"></script>
+  <style>
+    body {
+      padding: 0;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    #message-container {
+      width: 80%;
+      max-width: 1200px;
+	  margin-top: 150px;
+    }
+
+    #message-container div {
+      background-color: #CCC;
+      padding: 5px;
+    }
+
+    #message-container div:nth-child(2n) {
+      background-color: #FFF;
+    }
+
+    #send-container {
+      position: fixed;
+      padding-bottom: 50px;
+      bottom: 0;
+      background-color: white;
+      max-width: 1200px;
+      width: 80%;
+      display: flex;
+    }
+
+    #message-input {
+      flex-grow: 1;
+    }
+	
+	#ambidex {
+	  position: fixed;
+	  padding-bottom: 10px;
+	  bottom: 0;
+	}
+  </style>
+</head>
+<body>
+  <div style= "height: 100px; width: 100%; position:fixed; top:0; text-align: center;">
+    <div style= "height: 100px; width: 20%; display: inline-block; border-color: black; border-width: thick;">
+	<div style="top: 0; height: 50px; border-color: black; border-style: solid; border-width: 2px;">Name</div>
+	<div id="name" style="top: 50%; height: 50px; border-color: black; border-style: solid; border-width: 2px;">N/A</div>
+ </div>
+	<div style= "height: 100px; width: 20%; display: inline-block; border-color: black; border-width: thick;">
+	<div style="top: 0; height: 50px; border-color: black; border-style: solid; border-width: 2px;">role</div>
+	  <div id="role" style="top: 50%; height: 50px; border-color: black; border-style: solid; border-width: 2px;">N/A</div>
+	</div>
+	<div style= "height: 100px; width: 20%; display: inline-block; border-color: black; border-width: thick;">
+	  <div style="top: 0; height: 50px; border-color: black; border-style: solid; border-width: 2px;">points</div>
+	  <div id="points" style="top: 50%; height: 50px; border-color: black; border-style: solid; border-width: 2px;">N/A</div>
+	</div>
+	<div style= "height: 100px; width: 20%; display: inline-block; border-color: black; border-width: thick;">
+	  <div style="top: 0; height: 50px; border-color: black; border-style: solid; border-width: 2px;">timer</div>
+	  <div id="timer" style="top: 50%; height: 50px; border-color: black; border-style: solid; border-width: 2px;">Standby</div>
+	</div>
+  </div>
+  <div id="message-container"></div>
+  <form id="send-container">
+    <input type="text" id="message-input">
+	<button type="submit" id="send-button">Send</button>
+  </form>
+  <div id="ambidex">
+    <button id="ally">Ally</button>
+	<button id="betray">Betray</button>
+  </div>
+</body>
+</html>
