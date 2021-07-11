@@ -65,6 +65,10 @@ sock.on('timer', time => {
 	timer = setInterval(runTimer, 1000)
 })
 
+sock.on('game-over', room => {
+	sock.emit('reset-game', room);
+})
+
 
 
 /*

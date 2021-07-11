@@ -16,7 +16,7 @@ app.set('view engine', 'ejs')
 app.use(express.static(__dirname + '/../client'));
 app.use(express.urlencoded({ extended: true }));
 
-var rooms = { };
+var rooms = { test: {users: new Map(), game: null}};
 
 
 app.get('/', (req, res) => {
@@ -28,14 +28,17 @@ app.post('/room', (req, res) => {
 	if (rooms[req.body.room] != null) {
 		return res.redirect('/')
 	}
-	rooms[req.body.room] = { users: new Map(), game: null}
+	rooms[req.body.room] = {users: new Map(), game: null}
+	console.log(rooms)
 	res.redirect(req.body.room)
 	//send message saying new room was created
 	io.emit('room-created', req.body.room)
 })
 
 app.get('/:room', (req, res) => {
-	if(rooms[req.params.room] == null) {
+	if(rooms[req.params.room] == null ||
+	rooms[req.params.room].users.size == 10 ||
+    rooms[req.params.room].game != null)	{
 		return res.redirect('/')
 	}
 	res.render('room', { roomName: req.params.room})
@@ -101,10 +104,36 @@ io.on('connection', socket => {
 	socket.on('disconnect', () => {
 		getUserRooms(socket).forEach(room => {
 			socket.broadcast.emit('user-disconnected', rooms[room].users.get(socket.id)._name)
+			if(rooms[room].game != null){
+				if(rooms[room].game._inmates.has(socket.id)){
+				rooms[room].game._inmates.get(socket.id).instaKill();
+				rooms[room].game.deathCheck();
+				rooms[room].game.resetRound();
+			} else if(rooms[room].game._warden == socket.id){
+				console.log("i'm here")
+				socket.emit('reset-game', room)
+				rooms[room].game = null;
+				for(var [socketID, userInfo] of rooms[room].users){
+			let name = userInfo._name
+			rooms[room].users.set(socketID, {_name: name, _role: "N/A", _points: "N/A"});
+			io.to(socketID).emit('set-up', (room, {_name: name, _role: "N/A", _points: "N/A"}))
+			io.in(room).emit('timer', -1)
+		}
+			}}
 		    rooms[room].users.delete(socket.id)
 		})
 		
-	})
+	});
+	
+	socket.on('reset-game', room => {
+		rooms[room].game = null;
+	//	rooms[room].users.set(socket.id, {_name: name, _role: "N/A", _points: "N/A"});
+		for(var [socketID, userInfo] of rooms[room].users){
+			let name = userInfo._name
+			rooms[room].users.set(socketID, {_name: name, _role: "N/A", _points: "N/A"});
+			io.to(socketID).emit('set-up', (room, {_name: name, _role: "N/A", _points: "N/A"}))
+		}
+	});
 });
 
 function getUserRooms(socket) {
@@ -164,8 +193,10 @@ function command(text, room, socket){
 		rooms[room].game.enterBooth(socket.id, txt)
 		break;
 		case "!vote":
-		if(rooms[room].game._sacrificeVoteTime = true){
+		if(rooms[room].game._sacrificeVoteTime == true){
 		rooms[room].game.sacrificeReceiveVote(socket.id, txt[0]);
+		} else if(rooms[room].game._truthRound > 1) {
+			rooms[room].game.truthRoundReceiveVote(socket.id, txt[0]);
 		} else {
 			socket.emit('chat-message', "it's not time for that")
 		}
@@ -186,6 +217,20 @@ function command(text, room, socket){
 		case "!endRound":
 		clearTimeout(rooms[room].game._timer);
 		rooms[room].game.checkAllBooths();
+		break;
+		case "!escape":
+		if(rooms[room].game._winners.includes(socket.id)){
+			rooms[room].game._awaitingResponse.next(true)
+		}
+		case "!truth":
+		if(rooms[room].game._truthRound == 1){
+		rooms[room].game.truthOrDefaultReceiveVote(socket.id, "truth")
+		}
+		break;
+		case "!pass":
+		if(rooms[room].game._truthRound == 1){
+		rooms[room].game.truthOrDefaultReceiveVote(socket.id, "normal")
+		}
 		break;
 		case "!points":
 		let players = Object.values(rooms[room].game._players)

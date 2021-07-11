@@ -12,32 +12,47 @@ class Game {
 	  this._io = io;
 	  this._io.to(warden).emit('set-up', (this._room, {_name: users.get(warden)._name, _role: "Warden", _points: "N/A"}))
 	  userstemp.delete(warden)
+	  this._partners = [null, null]
+	  this._killer = null;
+	  this._snitch = null;
 	  this._inmates = this.assignPlayerRoles(userstemp);
 	  for(let [socketID, playerRole] of this._inmates){
 		  this._io.to(socketID).emit('set-up', (this._room, playerRole))
 	  }
+	  
 	  this._awaitingResponse = null;
 	  this._selectingUser = null;
 	  this._votingTime = false;
 	  this._sacrificeVoteTime = false;
 	  this._winners = []
+	  this._timeLimit;
 	  this._timer;
-	  this._truthVotes = {truth: [], normal: []}
+	  this._truthVotes = new Map([["truth", []], ["normal", []]])
 	  this._truthRound = 0;
 	  
   }
   
-
+  addTeam(prisoners){
+	  this._teams.push(new Team(prisoners))
+  }
   
-    startRound() {
+  findTeamOfUser(prisoner){
+	  return this._teams.find(team => team._inmates.includes(prisoner))
+  }
+  
+  startRound() {
+	  if(this._round == 10){
+		  this.wardenWin()
+	  } else {
 	   if(this._round % 2 != 0) {
+		   this._timeLimit = 180;
 		   this.defaultRound();
 	   } else {
 		   this._awaitingResponse = this.roundTypeSetup()
 		   this._awaitingResponse.next();
 	   }
    }
-   
+  }
    defaultRound() {
 	  let socketIDs = Array.from(this._inmates.keys());
 	  if (socketIDs.length > 1 && socketIDs.length <= 9) {
@@ -86,16 +101,20 @@ class Game {
 		  this.addTeam([player])
 	  })
 	  this.createBooths();
-	  this._timer = setTimeout(()=> {this.timeUp()}, 180000)
-	  this._io.in(this._room).emit('timer', 180)
+	  
+	  this._io.in(this._room).emit('timer', this._timeLimit)
+	  this.startTimer()
 	  this._io.in(this._room).emit('chat-message', 'Round Start!')
 	  this._votingTime = true;
 	  
   }
   
     *roundTypeSetup(){
+	  this._timeLimit = 180;
 	  this._io.to(this._warden).emit('chat-message', "1: Team");
 	  this._io.to(this._warden).emit('chat-message', "2: Solitary");
+	  this._io.to(this._warden).emit('chat-message', "3: Sacrifice");
+	  this._io.to(this._warden).emit('chat-message', "4: Truth");
 	  var round = null;
 	  this._selectingUser = this._warden;
 	  while(true){
@@ -114,7 +133,13 @@ class Game {
 			break;
 		case 3:
 		this.sacrificeRoundSetup();
-		return;
+			break;
+		case 4:
+			this.truthSetup(this._inmates);
+			break;
+		case 5:
+			this._timeLimit = 18;
+			this.defaultRound();
 		default:
 			this._io.to(this._warden).emit('chat-message', "Invalid Input. Please Try Again");
 	  }
@@ -200,8 +225,8 @@ class Game {
 	   this.addTeam(solitaryPrisoner);
 	   this.addTeam(socketIDs);
 	   this.createBooths();
-	   this._timer = setTimeout(()=> {this.timeUp()}, 180000)
-	   this._io.in(this._room).emit('timer', 180)
+	   this.startTimer();
+	   this._io.in(this._room).emit('timer', this._timeLimit)
 	   this._io.in(this._room).emit('chat-message', 'Round Start!');
 	   
   }
@@ -235,7 +260,7 @@ class Game {
 	  } else{
 				this._io.to(voter).emit('chat-message', 'invalid input, please try again')
 			}
-	if([].concat(Array.from(this._sacrificeVotes.values)).length == this._inmates.size){
+	if(this.totalVotes(this._sacrificeVotes) == this._inmates.size){
 		this._sacrificeVotes = new Map([...this._sacrificeVotes.entries()].sort((a,b) => b[1].length - a[1].length))
 		console.log(this._sacrificeVotes)
 		if(Array.from(this._sacrificeVotes.values())[0].length == Array.from(this._sacrificeVotes.values())[1].length){
@@ -313,18 +338,20 @@ class Game {
 		  this._io.to(key).emit('chat-message', "For the opprotunity to learn another prisoner's role, type !truth")
 		  this._io.to(key).emit('chat-message', "Else, type !pass to play a normal round")
 	  })
+	  this._truthRound ++;
   }
   
   truthOrDefaultReceiveVote(id, vote){
-	  if(this._truthVotes.get(truth).includes(id) ||
-	     this._truthVotes.get(normal).includes(id)){
+	  if(this._truthVotes.get("truth").includes(id) ||
+	     this._truthVotes.get("normal").includes(id)){
 			 this._io.to(id).emit('chat-message', 'you have already voted!')
 		 }else{
 			 this._truthVotes.get(vote).push(id)
-			 if(this._truthVotes.get(truth).length +
-			    this._truthVotes.get(normal).length == this._inmates.size){
-					if(this._truthVotes.get(truth).length >=
-					   this._truthVotes.get(normal).length){
+			 console.log(this._truthVotes)
+			 if(this._truthVotes.get("truth").length +
+			    this._truthVotes.get("normal").length == this._inmates.size){
+					if(this._truthVotes.get("truth").length >=
+					   this._truthVotes.get("normal").length){
 						   this.truthSetup(this._inmates)
 					   }else{
 						   this.defaultRound()
@@ -336,7 +363,8 @@ class Game {
   truthSetup(prisoners){
 	   for(var i = 0; i < this._inmates.size; i++){
 		  //lists all the prisoners to each prisoner
-		  for(var j = 0; j < prisoners; j++){
+		  for(var j = 0; j < prisoners.size; j++){
+			  
 			  this._io.to(Array.from(this._inmates.keys())[i]).emit('chat-message', j + " " + Array.from(prisoners.values())[j].playerStatus())
 		  }
 			  this._io.to(Array.from(this._inmates.keys())[i]).emit('chat-message', "Please select 1 Prisoner to vote for in this format: !vote #")
@@ -344,34 +372,39 @@ class Game {
 				  }
 		this._truthVotes = new Map(prisoners)
 		this._truthVotes.forEach((value, key) => this._truthVotes.set(key, []))
+		
 		this._truthRound ++;
   }
   
-  truthRoundRecieveVote(voter, voteNumber){
-	  if(voteNumber >= 0 && voteNumber < this._truthVotes.size){
+  truthRoundReceiveVote(voter, voteNumber){
+	  if(voteNumber >= 0 && voteNumber < this._truthVotes.size &&
+	  this.hasNotVoted(voter, this._truthVotes)){
 		  this._truthVotes.get(Array.from(this._truthVotes.keys())[voteNumber]).push(voter);
-		  console.log(this._truthVotes)
+		  
 	  } else{
 				this._io.to(voter).emit('chat-message', 'invalid input, please try again')
 			}
-	if([].concat(Array.from(this._truthVotes.values)).length == this._inmates.size){
+	if(this.totalVotes(this._truthVotes) == this._inmates.size){
 		this._truthVotes = new Map([...this._truthVotes.entries()].sort((a,b) => b[1].length - a[1].length))
 		//if there is a tie
 		if(Array.from(this._truthVotes.values())[0].length == Array.from(this._truthVotes.values())[1].length){
-			//if round is 1
-			if(this._truthRound == 1){
+			//if round is 2
+			if(this._truthRound == 2){
 				//take the length of the tied votes
 				var tie = Array.from(this._truthVotes.values())[0].length
 				//check all truthVote values, delete any key,value pair with less than the tie vote number
-				for(let [k,v] of this._truthVotes.entries){
+				for(let [k,v] of this._truthVotes.entries()){
 					if(v.length != tie){
 						this._truthVotes.delete(k)
+					} else {
+						this._truthVotes.set(k,this._inmates.get(k))
 					}
 				}
 				//run truthSetup again with the saved values
+				
 				this.truthSetup(this._truthVotes)
 			}
-			//else if round is 2
+			//else if round is 3
 			else{
 				//give all prisoners in truthVote 2 points
 				Array.from(this._truthVotes.keys()).forEach(prisoner => {
@@ -389,7 +422,7 @@ class Game {
 	else {
 		//chat-message to all prisoners the full details of the prisoner in this._truthVotes[0]
 		var truthReveal = Array.from(this._truthVotes.keys())[0]
-		this.io.in(this._room).emit('chat-message', `${this._inmates.get(truthReveal).fullPlayerStatus()}`)
+		this._io.in(this._room).emit('chat-message', `${this._inmates.get(truthReveal).fullPlayerStatus()}`)
 		
 		//round ++
 		this._round ++;
@@ -400,7 +433,24 @@ class Game {
   }
   }
  
+  hasNotVoted(prisoner, list){
+	  for (var votes of list.values()){
+		  if(votes.includes(prisoner)){
+			  
+			  return false;
+		  }
+	  }
+	  return true;
+  }
   
+  totalVotes(list){
+	  var i = 0;
+	  list.forEach(votes => {
+		  i += votes.length;
+	  })
+	  return i;
+	  
+  }
   
   
 
@@ -442,16 +492,15 @@ class Game {
 		  this._booths.forEach(booth => {
 			const results = booth.checkResults()
 			for(const [socketID, points] of Object.entries(results)) {
+				if(socketID != null){
 				this._inmates.get(socketID).changePoints(points);
 				this._io.to(socketID).emit('set-up', (this._room, this._inmates.get(socketID)));
+				}
 			}
 		  })
 		  this._teams = []
-		  this._inmates.forEach(prisoner => {
-			  if(prisoner._role == "partner"){
-				  console.log(`${prisoner._name}'s points: ${prisoner._points}. Partner's points: ${this._inmates.get(prisoner._partner)._points}`)
-			  }
-		  })
+		  
+		  this.deathCheck();
 		  this._round += 1;
 		  this._awaitingResponse = this.winCheck()
 		  this._awaitingResponse.next()
@@ -463,10 +512,12 @@ class Game {
  
    
    
-  
-   
+  startTimer(){
+	  this._timer = setTimeout(()=> {this.timeUp()}, (this._timeLimit * 1000))
+  }  
    
    timeUp() {
+	   this.timer = null
 	   this._teams.forEach(team => {
 		   if(!team._inBooth){
 			   team._inmates.forEach(inmate => {
@@ -478,7 +529,6 @@ class Game {
 			   this.sendVote(team._inmates[0], 'ally');
 		   }
 	   })
-	   this._timer = null
 	   this.checkAllBooths()
    }
    
@@ -497,9 +547,17 @@ class Game {
 		    this.timer = setTimeout(()=> {this._awaitingResponse.next(false)}, 9000)
 			let response = yield this._winners;
 			if(response){
+				if(this._inmates.includes(this._killer) && this._inmates.get(this._killer)._canWin &&
+				this._winners.length == 1){
+					this._winners = [this._killer]
+				}
+				else if(this._winners.includes(this._snitch)){
+					this._winners = [this._snitch]
+				}
 				this._io.in(this._room).emit('chat-message', 'GAME OVER! WINNERS:')
-				winners.forEach(id => {
+				this._winners.forEach(id => {
 				this._io.in(this._room).emit('chat-message', `${this._inmates.get(id)._name}`)
+				this._io.to(this._warden).emit('game-over', this._room)
 				})
 			}else{
 				this._winners = []
@@ -508,16 +566,25 @@ class Game {
 	  } else{
 		  this.startRound();
 	  }
-	  
+  }
+  
+  wardenWin(){
+	  this._io.in(this._room).emit('chat-message', 'Game Over! Warden Wins!');
+	  this._io.to(this._warden).emit('game-over', this._room)
   }
   
    
    deathCheck(){
+	   console.log(this._teams)
 	   var deaths = new Set()
 	   this._inmates.forEach((prisoner, id) => {
 		   if(!prisoner.isStillAlive()){
 			   this._io.in(this._room).emit('chat-message', `${prisoner._name} has been eliminated.`)
 			   deaths.add(id);
+			   if(this._inmates.has(this._killer)){
+				   this._io.to(this._killer).emit('chat-message', 'a player has died! wait for your opprotunity to escape!')
+				   this._inmates.get(this._killer)._canWin = true;
+			   }
 		   }
 	   })
 	   if(deaths.has(this._partners[0]) || deaths.has(this._partners[1])){
@@ -527,10 +594,28 @@ class Game {
 	   }
 	   deaths.forEach(id => {
 		   this._inmates.delete(id)
-	   })
-   }
+		   })
+		   
+	   }
+	   
    
-  
+   
+   
+  resetRound(){
+	  this._io.in(this._room).emit('chat-message', "due to a disconnect, this round will be reset")
+	  if(this._timer != null){
+		  clearTimeout(this._timer)
+	  }
+	 this._io.to(this._room).emit('timer', -1)
+	 this._teams = []
+	 this._booths = []
+	 this._truthVotes = new Map([["truth", []], ["normal", []]])
+	 this._sacrificeVotes = null;
+	 this._votingTime = false;
+	 this._truthRound = 0;
+	 this._sacrificeVoteTime = false;
+	 this.startRound()
+  }
   
   assignPlayerRoles(users){
 	  let socketIDs = Array.from(users.keys());
@@ -545,7 +630,7 @@ class Game {
 	  if(socketIDs.length >= 8){
 		  const killer = socketIDs.pop()
 		  users.set(killer, new playerRole.Killer(users.get(killer)._name))
-		  console.log('killer assigned')
+		  this._killer = killer;
 	  }
 	  
 	  if(socketIDs.length >= 6){
@@ -580,6 +665,10 @@ class Game {
 	
 	set vote(vote){
 		this._vote = vote
+	}
+	
+	removePrisoner(id){
+		this._inmates = this._inmates.filter(inmates => inmates != id)
 	}
 }
 
