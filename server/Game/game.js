@@ -116,7 +116,7 @@ class Game {
 	  this._io.to(this._warden).emit('chat-message', "2: Solitary");
 	  this._io.to(this._warden).emit('chat-message', "3: Sacrifice");
 	  this._io.to(this._warden).emit('chat-message', "4: Truth");
-	  this._io.to(this._warden).emit(('chat-message', "5: Lightning")
+	  this._io.to(this._warden).emit('chat-message', "5: Lightning");
 	  var round = null;
 	  this._selectingUser = this._warden;
 	  while(true){
