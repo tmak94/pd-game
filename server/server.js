@@ -146,7 +146,7 @@ function getUserRooms(socket) {
 server.on('error', (err) => {
 	console.error('Server error:', err);
 });
-const PORT = process.env.PORT;
+const PORT = 3000 || process.env.PORT;
 
 
 server.listen(PORT, () => {
@@ -190,6 +190,7 @@ function command(text, room, socket){
 		}
 		break;
 		case "!booth":
+		if(socket.id != rooms[room].game._warden)
 		rooms[room].game.enterBooth(socket.id, txt)
 		break;
 		case "!vote":

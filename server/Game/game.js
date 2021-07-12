@@ -41,7 +41,7 @@ class Game {
   }
   
   startRound() {
-	  if(this._round == 10){
+	  if(this._round == 10 || this._inmates.size == 0){
 		  this.wardenWin()
 	  } else {
 	   if(this._round % 2 != 0) {
@@ -106,6 +106,7 @@ class Game {
 	  this.startTimer()
 	  this._io.in(this._room).emit('chat-message', 'Round Start!')
 	  this._votingTime = true;
+	  console.log(this._teams)
 	  
   }
   
@@ -115,6 +116,7 @@ class Game {
 	  this._io.to(this._warden).emit('chat-message', "2: Solitary");
 	  this._io.to(this._warden).emit('chat-message', "3: Sacrifice");
 	  this._io.to(this._warden).emit('chat-message', "4: Truth");
+	  this._io.to(this._warden).emit(('chat-message', "5: Lightning")
 	  var round = null;
 	  this._selectingUser = this._warden;
 	  while(true){
@@ -225,6 +227,7 @@ class Game {
 	   this.addTeam(solitaryPrisoner);
 	   this.addTeam(socketIDs);
 	   this.createBooths();
+	   console.log(this._teams)
 	   this.startTimer();
 	   this._io.in(this._room).emit('timer', this._timeLimit)
 	   this._io.in(this._room).emit('chat-message', 'Round Start!');
@@ -490,7 +493,7 @@ class Game {
   
   checkAllBooths(){
 		  this._booths.forEach(booth => {
-			const results = booth.checkResults()
+			var results = booth.checkResults()
 			for(const [socketID, points] of Object.entries(results)) {
 				if(socketID != null){
 				this._inmates.get(socketID).changePoints(points);
@@ -547,7 +550,7 @@ class Game {
 		    this.timer = setTimeout(()=> {this._awaitingResponse.next(false)}, 9000)
 			let response = yield this._winners;
 			if(response){
-				if(this._inmates.includes(this._killer) && this._inmates.get(this._killer)._canWin &&
+				if(this._inmates.has(this._killer) && this._inmates.get(this._killer)._canWin &&
 				this._winners.length == 1){
 					this._winners = [this._killer]
 				}
@@ -607,13 +610,14 @@ class Game {
 		  clearTimeout(this._timer)
 	  }
 	 this._io.to(this._room).emit('timer', -1)
-	 this._teams = []
-	 this._booths = []
+	 this._teams = [];
+	 this._booths = [];
 	 this._truthVotes = new Map([["truth", []], ["normal", []]])
 	 this._sacrificeVotes = null;
 	 this._votingTime = false;
 	 this._truthRound = 0;
 	 this._sacrificeVoteTime = false;
+	 this._awaitingResponse = null;
 	 this.startRound()
   }
   
@@ -667,9 +671,7 @@ class Game {
 		this._vote = vote
 	}
 	
-	removePrisoner(id){
-		this._inmates = this._inmates.filter(inmates => inmates != id)
-	}
+	
 }
 
 module.exports = Game;

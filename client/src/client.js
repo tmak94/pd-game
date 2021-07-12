@@ -11,7 +11,10 @@ var timer = null;
 var seconds;
 
 if (messageForm != null) {
-	const name = prompt('What is your name?')
+	var name;
+	while(name == undefined || name == ""){
+	name = prompt('What is your name?')
+	}
     sock.emit('new-user', roomName, name)
 
     messageForm.addEventListener('submit', e => {

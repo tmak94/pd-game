@@ -72,8 +72,8 @@ class Booth {
 	
 
    checkResults() {
-	   const votes = this._votes;
-	   const results = {}
+	   var votes = this._votes;
+	   var results = {}
 	   
 	   if(votes[1] == null){
 		   if(votes[0] == "ally"){
@@ -102,7 +102,7 @@ class Booth {
 		   this.msgSide(this._sides[0], "u sly dog")
 		   this.assignPlayerPoints(results, this._sides[0], 3)
 	   } else if(votes[0] == "betray" && votes[1] == "betray"){
-		   this.msgSide("both have betrayed")
+		   this.msgBothSides("both have betrayed")
 	   }
 		   this._votes = [null, null];
 		   this._sides = [null, null];

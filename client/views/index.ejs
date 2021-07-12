@@ -9,14 +9,17 @@
     <script defer src="src/client.js"></script>
   </head>
   <body>
+  <h1 style= "text-align: center;">PRISONER DILEMMA</h1>
+  <h3 style= "text-align: center;">by<h3>
+  <h1 style= "text-align: center;">TOM KATZMAN</h1>
+  <a href="https://www.tomkatzman.com/s/Prisoners-dilemma-game.pdf" target="blank">Rules</a>
     <div id="room-container">
       <% for(var [room, info] of Object.entries(rooms)) { %>
 	  <div><%=room %> <%=info.users.size %></div>
 	  <a href="/<%= room %>">Join</a>
 	  <% } %>
 	  <form action="/room" method="POST">
-	    <input name="room" type="text" required>
-		<button type="submit">New Room</button>
+	   
 	  </form>
     </div>
   </body>
