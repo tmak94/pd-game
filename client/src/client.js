@@ -7,13 +7,18 @@ const nameBox = document.getElementById('name')
 const roleBox = document.getElementById('role')
 const pointBox = document.getElementById('points')
 const timerBox = document.getElementById('timer')
+const nameList = document.getElementById('user-list')
+const sides = []
+for(var s of document.getElementsByClassName('side')){
+	sides.push(s.id)
+}
 var timer = null;
 var seconds;
 
 if (messageForm != null) {
 	var name;
-	while(name == undefined || name == ""){
-	name = prompt('What is your name?')
+	while(name == undefined || name == "" || name.length > 6){
+	name = prompt('Please enter a name (limit 6 characters)')
 	}
     sock.emit('new-user', roomName, name)
 
@@ -44,8 +49,17 @@ sock.on('chat-message', data => {
 	appendMessage(data)
 })
 
+sock.on('names', nameArray => {
+	nameList.innerHTML = ""
+	nameList.appendChild(makeNameList(nameArray))
+})
+sock.on('show-in-booth', (sideID, names) => {
+	nameInBooth(sideID, names)
+})
+
 sock.on('user-connected', username => {
 	appendMessage(`${username} has connected`);
+	
 })
 
 sock.on('set-up', userData => {
@@ -72,6 +86,10 @@ sock.on('game-over', room => {
 	sock.emit('reset-game', room);
 })
 
+sock.on('show-booths', number => {
+	showBooths(number);
+})
+
 
 
 /*
@@ -81,9 +99,19 @@ sock.on('relay', info => {
 */
 
 function appendMessage(message) {
+	
 	const messageElement = document.createElement('div')
 	messageElement.innerText = message
 	messageContainer.append(messageElement)
+	
+	messageContainer.scrollTop = messageContainer.scrollHeight
+	
+}
+
+function nameInBooth(id, names){
+	var side = document.getElementById(id)
+	side.innerText = "";
+	side.innerText = names;
 }
 
 const addButtonListeners = () => {
@@ -95,7 +123,45 @@ const addButtonListeners = () => {
   });
 };
 
+function showBooths(number){
+	const booths = document.getElementsByClassName("booth");
+	for(var booth of booths){
+		booth.style.visibility = "hidden"
+	}
+	for(var i = 0; i < number; i++){
+		booths[i].style.visibility = "visible"
+	}
+}
+
+
+const addBoothListeners = () => {
+	
+	sides.forEach((id) => {
+		var boothSide = document.getElementById(id)
+		boothSide.addEventListener('click', () => {
+			
+			sock.emit('booth', roomName, [id.charAt(2), id.charAt(4)].map(x => parseInt(x)));
+		})
+	})
+}
+
+function makeNameList(userArray){
+	var list = document.createElement('ul')
+	userArray.forEach(user => {
+		var item = document.createElement('li')
+		if(user.startsWith("#")){
+			let color = user.slice(0, 7)
+			item.style.color = color
+			user = user.substring(7)
+		}
+		item.appendChild(document.createTextNode(user))
+		list.appendChild(item)
+	})
+	return list;
+}
+
 addButtonListeners();
+addBoothListeners();
 
 function runTimer(){
 	timerBox.innerText = `${seconds}`

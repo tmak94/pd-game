@@ -17,7 +17,7 @@ app.use(express.static(__dirname + '/../client'));
 app.use(express.urlencoded({ extended: true }));
 
 var rooms = { test: {users: new Map(), game: null}};
-
+    
 
 app.get('/', (req, res) => {
 
@@ -44,18 +44,19 @@ app.get('/:room', (req, res) => {
 	res.render('room', { roomName: req.params.room})
 })
 
-
+ 
 
 //when a player connects to the server
 io.on('connection', socket => {
 	
-	
+ 
 	
 	socket.on('new-user', (room, name) => {
 		socket.join(room)
 		rooms[room].users.set(socket.id, {_name: name, _role: "N/A", _points: "N/A"});
 		socket.to(room).emit('user-connected', (room, name));
 		io.to(socket.id).emit('set-up', (room, rooms[room].users.get(socket.id)))
+		io.to(room).emit('names', createNameArray(rooms[room].users))
 	})
 	
 	
@@ -87,9 +88,17 @@ io.on('connection', socket => {
 		}
 	});
 	
+	socket.on('booth', (room, booth) => {
+		if(rooms[room].game != null && rooms[room].game._inmates.has(socket.id)){
+			rooms[room].game.enterBooth(socket.id, booth[0], booth[1])
+		} else{
+			socket.emit('chat-message', 'no no no.');
+		}
+	})
+	
 	
 	socket.on('vote', (room, voteId) => {
-		if(rooms[room].game != null){
+		if(rooms[room].game != null && rooms[room].game._inmates.has(socket.id)){
 			rooms[room].game.sendVote(socket.id, voteId)
 		}
 	});
@@ -104,24 +113,22 @@ io.on('connection', socket => {
 	socket.on('disconnect', () => {
 		getUserRooms(socket).forEach(room => {
 			socket.broadcast.emit('user-disconnected', rooms[room].users.get(socket.id)._name)
+			rooms[room].users.delete(socket.id)
 			if(rooms[room].game != null){
 				if(rooms[room].game._inmates.has(socket.id)){
 				rooms[room].game._inmates.get(socket.id).instaKill();
 				rooms[room].game.deathCheck();
+				rooms[room].game.makeNameArray();
 				rooms[room].game.resetRound();
 			} else if(rooms[room].game._warden == socket.id){
-				console.log("i'm here")
-				socket.emit('reset-game', room)
-				rooms[room].game = null;
-				for(var [socketID, userInfo] of rooms[room].users){
-			let name = userInfo._name
-			rooms[room].users.set(socketID, {_name: name, _role: "N/A", _points: "N/A"});
-			io.to(socketID).emit('set-up', (room, {_name: name, _role: "N/A", _points: "N/A"}))
-			io.in(room).emit('timer', -1)
+				resetGame(room);
+				
+				
 		}
-			}}
-		    rooms[room].users.delete(socket.id)
-		})
+		
+			}else{
+			io.in(room).emit('names', createNameArray(rooms[room].users))
+			}})
 		
 	});
 	
@@ -132,10 +139,14 @@ io.on('connection', socket => {
 			let name = userInfo._name
 			rooms[room].users.set(socketID, {_name: name, _role: "N/A", _points: "N/A"});
 			io.to(socketID).emit('set-up', (room, {_name: name, _role: "N/A", _points: "N/A"}))
+			
 		}
+		io.in(room).emit('show-booths', 0)
+		io.in(room).emit('timer', -1)
+		io.in(room).emit('names', createNameArray(rooms[room].users))
 	});
 });
-
+ 
 function getUserRooms(socket) {
 	return Object.entries(rooms).reduce((names, [name, room]) => {
 	  if (room.users.has(socket.id)) names.push(name)
@@ -143,16 +154,36 @@ function getUserRooms(socket) {
 	}, [])
 }
 
+function resetGame(room){
+	rooms[room].game = null;
+	//	rooms[room].users.set(socket.id, {_name: name, _role: "N/A", _points: "N/A"});
+		for(var [socketID, userInfo] of rooms[room].users){
+			let name = userInfo._name
+			rooms[room].users.set(socketID, {_name: name, _role: "N/A", _points: "N/A"});
+			io.to(socketID).emit('set-up', (room, {_name: name, _role: "N/A", _points: "N/A"}))
+			io.in(room).emit('timer', -1)
+		}
+		io.in(room).emit('names', createNameArray(rooms[room].users))
+}
+
 server.on('error', (err) => {
 	console.error('Server error:', err);
 });
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 
 
 server.listen(PORT, () => {
 	console.log(`PD started on ${PORT}`);
 }); 
 
+function createNameArray(users){
+	var names = []
+	for(user of users.values()){
+		names.push(user._name)
+	}
+	return names;
+}
+  
 function command(text, room, socket){
 	var txt = text.split(" ");
 	
@@ -168,13 +199,6 @@ function command(text, room, socket){
 	else if(rooms[room].game != null){
 	
 	switch(cmd){
-		case "!test":
-		g = rooms[room].game.teamRoundSetup()
-		g.next()
-		break;
-		case "!test1":
-		g.next(txt)
-		break;
 		case "!select":
 		
 		if(rooms[room].game._selectingUser == socket.id) {
@@ -189,24 +213,11 @@ function command(text, room, socket){
 			socket.emit('chat-message', 'you shut up.')
 		}
 		break;
-		case "!booth":
-		if(socket.id != rooms[room].game._warden)
-		rooms[room].game.enterBooth(socket.id, txt)
-		break;
-		case "!vote":
-		if(rooms[room].game._sacrificeVoteTime == true){
-		rooms[room].game.sacrificeReceiveVote(socket.id, txt[0]);
-		} else if(rooms[room].game._truthRound > 1) {
-			rooms[room].game.truthRoundReceiveVote(socket.id, txt[0]);
-		} else {
-			socket.emit('chat-message', "it's not time for that")
-		}
-		break;
 		case "!stopTime":
 		if(rooms[room].game._timer != null){
 		clearTimeout(rooms[room].game._timer)
 		rooms[room].game._timer = null;
-		io.in(room).emit('timer', 0)
+		io.in(room).emit('timer', -1)
 		}
 		break;
 		case "!restartTime":
@@ -233,12 +244,7 @@ function command(text, room, socket){
 		rooms[room].game.truthOrDefaultReceiveVote(socket.id, "normal")
 		}
 		break;
-		case "!points":
-		let players = Object.values(rooms[room].game._players)
-		players.forEach(player => {
-			socket.emit('chat-message', `${player._name}: ${player._points}`)
-		})
-		break;
+		
 		
 		default:
 		socket.emit('chat-message', "unknown command")

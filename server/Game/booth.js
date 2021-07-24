@@ -2,9 +2,11 @@
 
 
 class Booth {
+	
 	constructor(room, io){
 		this._room = room;
 		this._io = io;
+		this._sideID = ["A","B"];
 		this._sides = [null, null];
 		this._votes = [null, null];
 		
@@ -15,21 +17,28 @@ class Booth {
 		return this._sides;
 	}
 	
+	getSide(sideIndex){
+		return this._sides[sideIndex];
+	}
 	
 	
-	enterSide(team){
-		if(this._sides[0] && this._sides[1]){
-			this.msgSide(team, "occupado!")
+	
+	enterSide(team, sideIndex){
+		if(team._inBooth && !this._sides.includes(team._inmates)){
+			this.msgSide(team._inmates, "You are already in a different booth. If you want to switch, please exit your booth first by re-selecting it.")
 		}
-		
-		
-		else if(!this._sides[0]) {
-			this._sides[0] = team
-		    this.msgSide(team, "Entered side A")
-			}
+		else if(team._inBooth){
+			team._inBooth = false;
+			this._sides[this._sides.indexOf(team._inmates)] = null
+			this.msgSide(team._inmates, "Exited Booth")
+		}
+		else if(this._sides[sideIndex]) {
+			this.msgSide(team._inmates, "this side is currently occupied.")
+		}
 		else {
-			this._sides[1] = team
-			this.msgSide(team, "Entered side B")
+			this._sides[sideIndex] = team._inmates
+			team._inBooth = true;
+			this.msgSide(team._inmates, `You have entered side ${this._sideID[sideIndex]}`)
 			
 	}
 	}

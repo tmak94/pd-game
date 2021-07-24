@@ -11,6 +11,7 @@ class Game {
 	  this._room = room;
 	  this._io = io;
 	  this._io.to(warden).emit('set-up', (this._room, {_name: users.get(warden)._name, _role: "Warden", _points: "N/A"}))
+	  this._nameList = [[`${users.get(warden)._name} | Warden`],[],[]]
 	  userstemp.delete(warden)
 	  this._partners = [null, null]
 	  this._killer = null;
@@ -19,7 +20,9 @@ class Game {
 	  for(let [socketID, playerRole] of this._inmates){
 		  this._io.to(socketID).emit('set-up', (this._room, playerRole))
 	  }
-	  
+	  this._teamColors = ["#FF0000", "#00FF00", "#0000FF", "#0000FF", "#FF00FF"]
+	  this.makeNameArray();
+	  this._specialRounds = ["Team", "Solitary", "Prom", "Lightning", "Truth", "Sacrifice"];
 	  this._awaitingResponse = null;
 	  this._selectingUser = null;
 	  this._votingTime = false;
@@ -101,51 +104,60 @@ class Game {
 		  this.addTeam([player])
 	  })
 	  this.createBooths();
-	  
+	  this.assignTeamColors();
+	  this._io.in(this._room).emit('show-booths', this._booths.length);
 	  this._io.in(this._room).emit('timer', this._timeLimit)
 	  this.startTimer()
 	  this._io.in(this._room).emit('chat-message', 'Round Start!')
 	  this._votingTime = true;
-	  console.log(this._teams)
+	  
 	  
   }
   
     *roundTypeSetup(){
 	  this._timeLimit = 180;
-	  this._io.to(this._warden).emit('chat-message', "1: Team");
-	  this._io.to(this._warden).emit('chat-message', "2: Solitary");
-	  this._io.to(this._warden).emit('chat-message', "3: Sacrifice");
-	  this._io.to(this._warden).emit('chat-message', "4: Truth");
-	  this._io.to(this._warden).emit('chat-message', "5: Lightning");
+	  for(var i = 0; i < this._specialRounds.length; i++){
+		  this._io.to(this._warden).emit('chat-message', `${i}: ${this._specialRounds[i]}`);
+	  }
+	  this._io.to(this._warden).emit('chat-message', 'Select one of these options for the next round using !select #');
 	  var round = null;
 	  this._selectingUser = this._warden;
-	  while(true){
+	  while(round == null || !(round[0] >= 0 && round[0] < this._specialRounds.length)){
 		  round = yield this._warden;
-		  
-		  switch(round[0]){
-		case 1:
+		  if(!(round[0] >= 0 && round[0] < this._specialRounds.length)){
+			  this._io.to(this._warden).emit('chat-message', "Invalid Input. Please Try Again");
+		  }
+	  }
+	  var roundType = this._specialRounds[round[0]];
+	  this._specialRounds.splice(round[0], 1);
+		  switch(roundType){
+		case "Team":
 			this._awaitingResponse = this.teamRoundSetup()
 			this._awaitingResponse.next()
 			break;
 			break;
-		case 2:
+		case "Solitary":
 			this._awaitingResponse = this.solitarySetup()
 			this._awaitingResponse.next()
 			break;
+		case "Prom":
+		    this._awaitingResponse = this.prisonPromSetup()
+			this._awaitingResponse.next()
 			break;
-		case 3:
+		case "Sacrifice":
 		this.sacrificeRoundSetup();
 			break;
-		case 4:
+		case "Truth":
 			this.truthSetup(this._inmates);
 			break;
-		case 5:
+		case "Lightning":
 			this._timeLimit = 18;
 			this.defaultRound();
 		default:
-			this._io.to(this._warden).emit('chat-message', "Invalid Input. Please Try Again");
+		    this._io.in(this._room).emit('chat-message', "idk how this happened but i guess it's default round time")
+			this.defaultRound();
 	  }
-	  }
+	  
 	  
   }
   
@@ -200,9 +212,12 @@ class Game {
 	   }
 	   this.addTeam(teams[0]);
 	   this.addTeam(teams[1]);
+	   this.assignTeamColors()
 	   this.createBooths();
-	   this._timer = setTimeout(()=> {this.timeUp()}, 180000)
-	   this._io.in(this._room).emit('timer', 180)
+	   this._votingTime = true;
+	   this._io.in(this._room).emit('show-booths', this._booths.length);
+	   this.startTimer();
+	   this._io.in(this._room).emit('timer', this._timeLimit)
 	   this._io.in(this._room).emit('chat-message', 'Round Start!');
   }
   
@@ -227,7 +242,9 @@ class Game {
 	   this.addTeam(solitaryPrisoner);
 	   this.addTeam(socketIDs);
 	   this.createBooths();
-	   console.log(this._teams)
+	   this.assignTeamColors();
+	   this._votingTime = true;
+	   this._io.in(this._room).emit('show-booths', this._booths.length);
 	   this.startTimer();
 	   this._io.in(this._room).emit('timer', this._timeLimit)
 	   this._io.in(this._room).emit('chat-message', 'Round Start!');
@@ -284,6 +301,7 @@ class Game {
 	this.deathCheck();
 	this._sacrificeVoteTime = false;
 	this._round += 1;
+	this.makeNameArray()
 	this.startRound()
 	}
   }
@@ -325,13 +343,28 @@ class Game {
 		while(true){
 			date = yield this._selectingUser;
 			if(date[0] >= 0 && date[0] < this._teams.length){
-				this._teams[date[0]]._inmates.push(this._selectingUser)
-				break;
+				this._teams[date[0]]._inmates.push(this._selectingUser);
+				 this.assignTeamColors()
+	             this.createBooths();
+	             this._votingTime = true;
+	             this._io.in(this._room).emit('show-booths', this._booths.length);
+	             this.startTimer();
+	             this._io.in(this._room).emit('timer', this._timeLimit)
+	             this._io.in(this._room).emit('chat-message', 'Round Start!');
+				return;
 			}
 			else{
-				this._io.to(this._warden).emit('chat-message', 'invalid input, please try again')
+				this._io.to(this._selectingUser).emit('chat-message', 'invalid input, please try again')
 			}
 		}
+	} else{
+		this.assignTeamColors()
+	    this.createBooths();
+	    this._votingTime = true;
+	    this._io.in(this._room).emit('show-booths', this._booths.length);
+	    this.startTimer();
+	    this._io.in(this._room).emit('timer', this._timeLimit)
+	    this._io.in(this._room).emit('chat-message', 'Round Start!');
 	}
 
   }
@@ -415,6 +448,7 @@ class Game {
 				})
 				//round ++
 				 this._round ++;
+				 this.makeNameArray()
 		  
 				//check for win conditions
 				this._awaitingResponse = this.winCheck()
@@ -429,6 +463,7 @@ class Game {
 		
 		//round ++
 		this._round ++;
+		this.makeNameArray()
 		//check for win conditions
 		this._awaitingResponse = this.winCheck()
 		this._awaitingResponse.next()
@@ -456,7 +491,7 @@ class Game {
   }
   
   
-
+ 
   
   
 
@@ -467,13 +502,41 @@ class Game {
 	  }
   }
   
-  enterBooth(user, boothNumber) {
-	  this._booths[boothNumber].enterSide(this.findTeamOfUser(user)._inmates);
-	  this.findTeamOfUser(user)._inBooth = true;
-	  
+  enterBooth(user, boothNumber, sideIndex) {
+	  if(this._votingTime){
+	  if(this.findTeamOfUser(user)._vote){
+		  for(var inmate of this.findTeamOfUser(user)._inmates){
+			  this._io.to(inmate).emit('chat-message', 'You have already voted. You may not change your vote or switch booths.')
+		  }
+	  }else{
+	  this._booths[boothNumber].enterSide(this.findTeamOfUser(user), sideIndex);
+	  this.putNamesInBooth(boothNumber, sideIndex);
+	  }
+	  } 
+  }
+  
+  putNamesInBooth(boothNumber, sideIndex){
+	  var names = this._booths[boothNumber].getSide(sideIndex);
+	  if(names){
+	  var nameString = ""
+	  if(names.length < 3){
+		  names.forEach(name => {
+			  nameString += this._inmates.get(name)._name + "\n"
+		  })
+	  }else{
+		  nameString = this._inmates.get(name[0])._name + "\n" + this._inmates.get(name[1])._name + "\n" + this._inmates.get(name[2])._name + "\n ..."
+	  }
+	  this._io.in(this._room).emit('show-in-booth', `b-${boothNumber}-${sideIndex}`, nameString)
+  }else{
+	   this._io.in(this._room).emit('show-in-booth', `b-${boothNumber}-${sideIndex}`, "")
+  }
   }
   
   sendVote(user, vote) {
+	  if(this._votingTime){
+	  if(this.findTeamOfUser(user)._vote){
+		  this._io.to(user).emit('chat-message', 'You have already made your vote for this round.')
+	  } else{
 	  var boothIndex = this._booths.findIndex(booth => booth._sides.includes(this.findTeamOfUser(user)._inmates)) 
 	  if(boothIndex == -1) {
 		  this._io.to(user).emit('chat-message', 'Please enter a booth first');
@@ -490,8 +553,12 @@ class Game {
 		  this.checkAllBooths();
 	  }
   }
+	  }
+  }
   
   checkAllBooths(){
+	  this._votingTime = false;
+	  this._io.in(this._room).emit('show-booths', 0);
 		  this._booths.forEach(booth => {
 			var results = booth.checkResults()
 			for(const [socketID, points] of Object.entries(results)) {
@@ -505,6 +572,7 @@ class Game {
 		  
 		  this.deathCheck();
 		  this._round += 1;
+		  this.makeNameArray()
 		  this._awaitingResponse = this.winCheck()
 		  this._awaitingResponse.next()
 		  
@@ -621,7 +689,78 @@ class Game {
 	 this.startRound()
   }
   
+  
+  makeNameArray(){
+	  var newWardenArray = []
+	  var newPartnerArray = []
+	  var newInmateArray = []
+	  
+	  newWardenArray.push(this._nameList[0][0])
+	  newPartnerArray.push(this._nameList[0][0])
+	  newInmateArray.push(this._nameList[0][0])
+	  this._inmates.forEach((player) => {
+		  var name = `${player._name} | ${player._points}P`
+		  newInmateArray.push(name)
+		  if(player._role == "partner"){
+			  name = "(p) " + name
+			  newPartnerArray.push(name)
+			  newWardenArray.push(name)
+		  }
+		  else if(player._role != "inmate"){
+			  newPartnerArray.push(name)
+			  name = `(${player._role.charAt(0)}) ` + name
+			  newWardenArray.push(name)
+		  } else{
+			  newPartnerArray.push(name)
+			  newWardenArray.push(name)
+		  }
+		  
+	  })
+	  this._nameList = [newWardenArray, newPartnerArray, newInmateArray]
+	  this._io.to(this._warden).emit('names', this._nameList[0])
+	  if(this._partners[0] != null &&
+	     this._inmates.has(this._partners[0])){
+			 this._io.to(this._partners[0]).emit('names', this._nameList[1])
+			 this._io.to(this._partners[1]).emit('names', this._nameList[1])
+		 }
+	  this._inmates.forEach((inmate, id) => {
+		  if(inmate._role != "partner"){
+			  this._io.to(id).emit('names', this._nameList[2])
+		  }
+	  })
+  }
+  assignTeamColors(){
+	  var colorIndex = 0
+	  this._teams.forEach(team => {
+		  if(team._inmates.length > 1){
+			  team._inmates.forEach(prisoner => {
+				  var name = this._inmates.get(prisoner)._name
+				  var nameIndex = this._nameList[0].findIndex(userName => userName.includes(`${name} `))
+				  this._nameList.forEach(list => {
+					  list[nameIndex] = this._teamColors[colorIndex] + list[nameIndex]
+				  })
+			  })
+			  colorIndex++
+		  }
+	  })
+	  if(colorIndex > 0){
+	  this._io.to(this._warden).emit('names', this._nameList[0])
+	  if(this._partners[0] != null &&
+	     this._inmates.has(this._partners[0])){
+			 this._io.to(this._partners[0]).emit('names', this._nameList[1])
+			 this._io.to(this._partners[1]).emit('names', this._nameList[1])
+		 }
+	  this._inmates.forEach((inmate, id) => {
+		  if(inmate._role != "partner"){
+			  this._io.to(id).emit('names', this._nameList[2])
+		  }
+	  })
+	  }
+  }
+  
+  
   assignPlayerRoles(users){
+
 	  let socketIDs = Array.from(users.keys());
 	  //shuffle the IDs 
 	  for(let i = socketIDs.length - 1; i > 0; i--){
@@ -653,6 +792,7 @@ class Game {
 	  return users;
   }
 
+  
 }
   
   

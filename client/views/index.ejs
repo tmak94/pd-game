@@ -15,7 +15,7 @@
   <a href="https://www.tomkatzman.com/s/Prisoners-dilemma-game.pdf" target="blank">Rules</a>
     <div id="room-container">
       <% for(var [room, info] of Object.entries(rooms)) { %>
-	  <div><%=room %> <%=info.users.size %></div>
+	  <div><%=room %> <%=info.users.size %><p>/10</p></div>
 	  <a href="/<%= room %>">Join</a>
 	  <% } %>
 	  <form action="/room" method="POST">

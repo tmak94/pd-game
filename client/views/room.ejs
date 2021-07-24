@@ -23,9 +23,46 @@
 	  max-height: 375px;
       width: 80%;
       max-width: 1200px;
-	  margin-top: 150px;
+	  margin-top: 250px;
 	  overflow-y: scroll;
+	  margin-left: 100px;
     }
+	
+	#user-list {
+	position: absolute;
+	height: 375px;
+	max-height: 375px;
+	width: 10%;
+	max-width: 200px;
+	left: 0;
+	top: 120px;
+	}
+	
+	#voting-booths {
+	  position: absolute;
+	  height: 100px;
+	  width: 80%;
+	  margin-left: 100px;
+	  margin-top: 110px;
+	  text-align: center;
+	}
+	
+	.booth {
+	  height: 50px;
+	  display: inline-block;
+	  text-align: center;
+	  width: 52px;
+	  visibility: hidden;
+	}
+	
+	.booth div {
+	height: 100%;
+	width: 46%;
+	display: inline-block;
+	border: 1px solid black;
+	margin-left: 0;
+	margin-right: 0;
+	}
 
     #message-container div {
       background-color: #CCC;
@@ -75,6 +112,21 @@
 	  <div style="top: 0; height: 50px; border-color: black; border-style: solid; border-width: 2px;">timer</div>
 	  <div id="timer" style="top: 50%; height: 50px; border-color: black; border-style: solid; border-width: 2px;">Standby</div>
 	</div>
+  </div>
+  <div id="user-list"></div>
+  <div id="voting-booths">
+     <div class="booth" id="b0">
+	 <div class="side" id="b-0-0">a</div><div class="side" id="b-0-1">b</div>
+	 </div>
+	 <div class="booth" id="b1">
+	 <div class="side" id="b-1-0">a</div><div class="side" id="b-1-1">b</div>
+	 </div>
+	 <div class="booth" id="b2">
+	 <div class="side" id="b-2-0">a</div><div class="side" id="b-2-1">b</div>
+	 </div>
+	 <div class="booth" id="b3">
+	 <div class="side" id="b-3-0">a</div><div class="side" id="b-3-1">b</div>
+	 </div>
   </div>
   <div id="message-container"></div>
   <form id="send-container">
