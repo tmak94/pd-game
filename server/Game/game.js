@@ -528,7 +528,7 @@ class Game {
 	  }
 	  this._io.in(this._room).emit('show-in-booth', `b-${boothNumber}-${sideIndex}`, nameString)
   }else{
-	   this._io.in(this._room).emit('show-in-booth', `b-${boothNumber}-${sideIndex}`, "")
+	   this._io.in(this._room).emit('show-in-booth', `b-${boothNumber}-${sideIndex}`, `${this._booths[0]._sideID[sideIndex]}`)
   }
   }
   

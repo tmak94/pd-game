@@ -48,11 +48,14 @@ app.get('/:room', (req, res) => {
 
 //when a player connects to the server
 io.on('connection', socket => {
-	
+	 
  
 	
 	socket.on('new-user', (room, name) => {
 		socket.join(room)
+		if(Array.from(rooms[room].users.values()).some(x => x._name == name)){
+		name = `${name}${(Array.from(rooms[room].users.values()).filter(x => x._name == name)).length}`
+		}
 		rooms[room].users.set(socket.id, {_name: name, _role: "N/A", _points: "N/A"});
 		socket.to(room).emit('user-connected', (room, name));
 		io.to(socket.id).emit('set-up', (room, rooms[room].users.get(socket.id)))
@@ -161,9 +164,11 @@ function resetGame(room){
 			let name = userInfo._name
 			rooms[room].users.set(socketID, {_name: name, _role: "N/A", _points: "N/A"});
 			io.to(socketID).emit('set-up', (room, {_name: name, _role: "N/A", _points: "N/A"}))
-			io.in(room).emit('timer', -1)
+			
 		}
+		io.in(room).emit('timer', -1) 
 		io.in(room).emit('names', createNameArray(rooms[room].users))
+		io.in(room).emit('show-booths', 0)
 }
 
 server.on('error', (err) => {
@@ -173,7 +178,7 @@ const PORT = process.env.PORT || 3000;
 
 
 server.listen(PORT, () => {
-	console.log(`PD started on ${PORT}`);
+	console.log(`PD started on ${PORT}`); 
 }); 
 
 function createNameArray(users){

@@ -17,8 +17,8 @@ var seconds;
 
 if (messageForm != null) {
 	var name;
-	while(name == undefined || name == "" || name.length > 6){
-	name = prompt('Please enter a name (limit 6 characters)')
+	while(name == undefined || name == "" || name.length > 6 || /[^a-zA-Z]/.test(name)){
+	name = prompt('Please enter a name (limit 6 characters, only use letters)')
 	}
     sock.emit('new-user', roomName, name)
 
@@ -128,8 +128,10 @@ function showBooths(number){
 	for(var booth of booths){
 		booth.style.visibility = "hidden"
 	}
+	if(number > 0){
 	for(var i = 0; i < number; i++){
 		booths[i].style.visibility = "visible"
+	}
 	}
 }
 
