@@ -153,6 +153,7 @@ class Game {
 		case "Lightning":
 			this._timeLimit = 18;
 			this.defaultRound();
+			break;
 		default:
 		    this._io.in(this._room).emit('chat-message', "idk how this happened but i guess it's default round time")
 			this.defaultRound();
