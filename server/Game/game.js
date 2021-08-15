@@ -511,13 +511,14 @@ class Game {
 		  }
 	  }else{
 	  this._booths[boothNumber].enterSide(this.findTeamOfUser(user), sideIndex);
-	  this.putNamesInBooth(boothNumber, sideIndex);
+	  this.putNamesInBooth(boothNumber);
 	  }
 	  } 
   }
   
-  putNamesInBooth(boothNumber, sideIndex){
-	  var names = this._booths[boothNumber].getSide(sideIndex);
+  putNamesInBooth(boothNumber){
+	  for(var i = 0; i < 2; i++){
+	  var names = this._booths[boothNumber].getSide(i);
 	  if(names){
 	  var nameString = ""
 	  if(names.length < 3){
@@ -525,11 +526,12 @@ class Game {
 			  nameString += this._inmates.get(name)._name + "\n"
 		  })
 	  }else{
-		  nameString = this._inmates.get(name[0])._name + "\n" + this._inmates.get(name[1])._name + "\n" + this._inmates.get(name[2])._name + "\n ..."
+		  nameString = this._inmates.get(names[0])._name + "\n" + this._inmates.get(names[1])._name + "\n" + this._inmates.get(names[2])._name + "\n ..."
 	  }
-	  this._io.in(this._room).emit('show-in-booth', `b-${boothNumber}-${sideIndex}`, nameString)
+	  this._io.in(this._room).emit('show-in-booth', `b-${boothNumber}-${i}`, nameString)
   }else{
-	   this._io.in(this._room).emit('show-in-booth', `b-${boothNumber}-${sideIndex}`, `${this._booths[0]._sideID[sideIndex]}`)
+	   this._io.in(this._room).emit('show-in-booth', `b-${boothNumber}-${i}`, `${this._booths[0]._sideID[i]}`)
+  }
   }
   }
   
@@ -570,7 +572,7 @@ class Game {
 			}
 		  })
 		  this._teams = []
-		  
+		  this._booths = []
 		  this.deathCheck();
 		  this._round += 1;
 		  this.makeNameArray()

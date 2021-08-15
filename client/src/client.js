@@ -124,6 +124,7 @@ const addButtonListeners = () => {
 };
 
 function showBooths(number){
+	resetBoothNames();
 	const booths = document.getElementsByClassName("booth");
 	for(var booth of booths){
 		booth.style.visibility = "hidden"
@@ -175,5 +176,16 @@ function runTimer(){
 
 	}else{
 	seconds--;
+	}
+}
+
+function resetBoothNames(){
+	const sides = document.getElementsByClassName("side");
+	for(var side of sides){
+      if(side.id.slice(-1) == "0"){
+		  side.innerText = "A"
+	  }	else{
+		  side.innerText = "B"
+	  }
 	}
 }
