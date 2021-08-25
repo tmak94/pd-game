@@ -22,7 +22,7 @@ class Game {
 	  }
 	  this._teamColors = ["#FF0000", "#00FF00", "#0000FF", "#0000FF", "#FF00FF"]
 	  this.makeNameArray();
-	  this._specialRounds = ["Team", "Solitary", "Prom", "Lightning", "Truth", "Sacrifice"];
+	  this._specialRounds = ["Team", "Solitary", "Prom", "Lightning", "Sacrifice"];
 	  this._awaitingResponse = null;
 	  this._selectingUser = null;
 	  this._votingTime = false;
@@ -47,7 +47,10 @@ class Game {
 	  if(this._round == 10 || this._inmates.size == 0){
 		  this.wardenWin()
 	  } else {
-	   if(this._round % 2 != 0) {
+		  if(this._round % 3 == 0){
+			  this.truthSetup(this._inmates);
+		  }
+	   else if(this._round % 2 != 0) {
 		   this._timeLimit = 180;
 		   this.defaultRound();
 	   } else {
@@ -404,7 +407,7 @@ class Game {
 			  
 			  this._io.to(Array.from(this._inmates.keys())[i]).emit('chat-message', j + " " + Array.from(prisoners.values())[j].playerStatus())
 		  }
-			  this._io.to(Array.from(this._inmates.keys())[i]).emit('chat-message', "Please select 1 Prisoner to vote for in this format: !vote #")
+			  this._io.to(Array.from(this._inmates.keys())[i]).emit('chat-message', "Please select 1 Prisoner to reveal their role in this format: !truth #")
 			  
 				  }
 		this._truthVotes = new Map(prisoners)
@@ -425,8 +428,8 @@ class Game {
 		this._truthVotes = new Map([...this._truthVotes.entries()].sort((a,b) => b[1].length - a[1].length))
 		//if there is a tie
 		if(Array.from(this._truthVotes.values())[0].length == Array.from(this._truthVotes.values())[1].length){
-			//if round is 2
-			if(this._truthRound == 2){
+			//if round is 1
+			if(this._truthRound == 1){
 				//take the length of the tied votes
 				var tie = Array.from(this._truthVotes.values())[0].length
 				//check all truthVote values, delete any key,value pair with less than the tie vote number
@@ -438,22 +441,31 @@ class Game {
 					}
 				}
 				//run truthSetup again with the saved values
-				
+				this._truthRound++;
 				this.truthSetup(this._truthVotes)
 			}
 			//else if round is 3
 			else{
-				//give all prisoners in truthVote 2 points
+				//pick a prisoner at random from the list
+				
+				var random = Array.from(this._truthVotes.keys())[Math.floor(Math.random() * this._truthVotes.size())];
+				this._io.in(this._room).emit('chat-message', `${this._inmates.get(random).fullPlayerStatus()}`)
+				/*
 				Array.from(this._truthVotes.keys()).forEach(prisoner => {
 				this._inmates.get(prisoner).changePoints(2)
 				})
-				//round ++
-				 this._round ++;
-				 this.makeNameArray()
-		  
-				//check for win conditions
-				this._awaitingResponse = this.winCheck()
-		        this._awaitingResponse.next()
+				this.makeNameArray()
+				*/
+				 
+		  this._truthRound = 0;
+				//next round start
+				 if(this._round % 2 != 0) {
+		   this._timeLimit = 180;
+		   this.defaultRound();
+	   } else {
+		   this._awaitingResponse = this.roundTypeSetup()
+		   this._awaitingResponse.next();
+	   }
 				
 			}
 	} //if there is no tie
@@ -462,15 +474,23 @@ class Game {
 		var truthReveal = Array.from(this._truthVotes.keys())[0]
 		this._io.in(this._room).emit('chat-message', `${this._inmates.get(truthReveal).fullPlayerStatus()}`)
 		
-		//round ++
-		this._round ++;
-		this.makeNameArray()
-		//check for win conditions
-		this._awaitingResponse = this.winCheck()
-		this._awaitingResponse.next()
+		
+		//next round start
+		this._truthRound = 0;
+		 if(this._round % 2 != 0) {
+		   this._timeLimit = 180;
+		   this.defaultRound();
+	   } else {
+		   this._awaitingResponse = this.roundTypeSetup()
+		   this._awaitingResponse.next();
+	   }
+		
+		
 	}
   }
   }
+  
+  
  
   hasNotVoted(prisoner, list){
 	  for (var votes of list.values()){

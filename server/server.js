@@ -240,13 +240,18 @@ function command(text, room, socket){
 			rooms[room].game._awaitingResponse.next(true)
 		}
 		case "!truth":
-		if(rooms[room].game._truthRound == 1){
-		rooms[room].game.truthOrDefaultReceiveVote(socket.id, "truth")
+		if(rooms[room].game._truthRound > 0){
+		rooms[room].game.truthRoundReceiveVote(socket.id, txt[0])
+		} else{
+			socket.emit('chat-message', 'not time for that')
 		}
 		break;
-		case "!pass":
-		if(rooms[room].game._truthRound == 1){
-		rooms[room].game.truthOrDefaultReceiveVote(socket.id, "normal")
+		
+		case "!vote":
+		if(rooms[room].game._sacrificeVoteTime){
+			rooms[room].game.sacrificeReceiveVote(socket.id, txt[0])
+		} else{
+			socket.emit('chat-message', 'not time for that')
 		}
 		break;
 		
